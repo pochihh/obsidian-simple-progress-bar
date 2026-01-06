@@ -34,9 +34,8 @@ The note progress bar appears automatically in the header when your note contain
 ### Embedded Section Progress
 Add progress tracking to specific sections:
 
-```markdown
+````markdown
 ## Section 1
-
 ```sp-bar
 Progress
 ```
@@ -44,7 +43,7 @@ Progress
 - [ ] Task A
 - [x] Task B
 - [ ] Task C
-```
+````
 
 The embedded bar will show: `2/3 (67%)`
 
