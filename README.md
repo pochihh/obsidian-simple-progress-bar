@@ -77,6 +77,10 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for instructions on building and testing lo
 - Customizable label text for embedded bars
 - Zero configuration required
 
+## Known Issue
+
+- If a note begins immediately with an `sp-bar` code block on the first line, Obsidian keeps that block in edit mode and skips our processor. As a temporary workaround, the plugin will automatically insert a leading blank line for such notes so the bar renders. This is applied in-memory when the note loads; no other content is modified.
+
 ## Support
 
 Found a bug or have a feature request? [Open an issue](https://github.com/pochihh/obsidian-simple-progress-bar/issues)

@@ -14,3 +14,4 @@ data.json
 # Tools
 .vscode/
 .claude/
+tests/

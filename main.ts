@@ -1,4 +1,6 @@
 import { App, Plugin, PluginSettingTab, Setting, MarkdownView } from 'obsidian';
+import { NoteProgressBar } from './noteProgressBar';
+import { SectionProgressBar } from './sectionProgressBar';
 
 interface ProgressBarSettings {
 	showNoteProgressBar: boolean;
@@ -11,14 +13,18 @@ const DEFAULT_SETTINGS: ProgressBarSettings = {
 };
 
 export default class SimpleProgressBarPlugin extends Plugin {
-	private progressBars: Map<MarkdownView, HTMLElement> = new Map();
+	private noteProgressBar: NoteProgressBar;
+	private sectionProgressBar: SectionProgressBar;
 	private statusBarItem: HTMLElement;
 	private ribbonIconEl: HTMLElement | null = null;
-	private embeddedBars: Map<HTMLElement, { source: string; ctx: any }> = new Map();
 	settings: ProgressBarSettings;
 
 	async onload() {
 		console.log('Loading Simple Progress Bar plugin');
+
+		// Initialize progress bar managers
+		this.noteProgressBar = new NoteProgressBar();
+		this.sectionProgressBar = new SectionProgressBar();
 
 		// Load settings
 		await this.loadSettings();
@@ -47,6 +53,7 @@ export default class SimpleProgressBarPlugin extends Plugin {
 		// Register an event when the active leaf changes (switching notes)
 		this.registerEvent(
 			this.app.workspace.on('active-leaf-change', () => {
+				console.log('[LEAF-CHANGE] Event fired');
 				this.updateProgressBar();
 			})
 		);
@@ -55,13 +62,19 @@ export default class SimpleProgressBarPlugin extends Plugin {
 		this.registerEvent(
 			this.app.workspace.on('editor-change', () => {
 				this.updateProgressBar();
-				this.updateAllEmbeddedBars();
+				const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+				if (view) {
+					requestAnimationFrame(() => this.sectionProgressBar.updateAllEmbeddedBars(view));
+				}
 			})
 		);
 
 		// Register code block processor for embedded progress bars
 		this.registerMarkdownCodeBlockProcessor('sp-bar', (source, el, ctx) => {
-			this.renderEmbeddedProgressBar(source, el, ctx);
+			const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+			if (view) {
+				this.sectionProgressBar.renderEmbeddedProgressBar(source, el, ctx, view);
+			}
 		});
 
 		// Wait for workspace to be ready before initial update
@@ -76,10 +89,7 @@ export default class SimpleProgressBarPlugin extends Plugin {
 	onunload() {
 		console.log('Unloading Simple Progress Bar plugin');
 		// Clean up all progress bars
-		this.progressBars.forEach((el) => {
-			el.remove();
-		});
-		this.progressBars.clear();
+		this.noteProgressBar.cleanup();
 	}
 
 	async loadSettings() {
@@ -88,23 +98,6 @@ export default class SimpleProgressBarPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-	}
-
-	/**
-	 * Counts checkboxes in the current note
-	 * Returns: { total: number, checked: number }
-	 */
-	private countCheckboxes(content: string): { total: number; checked: number } {
-		// Match unchecked boxes: - [ ]
-		const uncheckedRegex = /- \[ \]/g;
-		// Match checked boxes: - [x] or - [X]
-		const checkedRegex = /- \[[xX]\]/g;
-
-		const unchecked = (content.match(uncheckedRegex) || []).length;
-		const checked = (content.match(checkedRegex) || []).length;
-		const total = checked + unchecked;
-
-		return { total, checked };
 	}
 
 	/**
@@ -119,80 +112,21 @@ export default class SimpleProgressBarPlugin extends Plugin {
 			return;
 		}
 
-		// Get or create progress bar for this view
-		let progressBarEl = this.progressBars.get(view);
-
 		// Check if progress bar is enabled in settings
 		if (!this.settings.showNoteProgressBar) {
-			if (progressBarEl) {
-				progressBarEl.addClass('is-hidden');
-			}
+			this.noteProgressBar.hideProgressBar(view);
 			this.statusBarItem.setText('Progress Bar: Off');
 			return;
 		}
 
-		// Get the content of the current note
-		const content = view.editor.getValue();
-		const { total, checked } = this.countCheckboxes(content);
+		// Update the note progress bar
+		const result = this.noteProgressBar.updateProgressBar(view);
 
-		// If there are no checkboxes, hide the progress bar
-		if (total === 0) {
-			if (progressBarEl) {
-				progressBarEl.addClass('is-hidden');
-			}
+		if (!result) {
 			this.statusBarItem.setText('No tasks');
-			return;
+		} else {
+			this.statusBarItem.setText(`Tasks: ${result.checked}/${result.total} (${result.percentage}%)`);
 		}
-
-		// Calculate percentage
-		const percentage = Math.round((checked / total) * 100);
-
-		// Create progress bar if it doesn't exist or is not in the DOM
-		if (!progressBarEl || !progressBarEl.isConnected) {
-			const newBar = this.createProgressBar(view);
-			if (newBar) {
-				progressBarEl = newBar;
-				this.progressBars.set(view, progressBarEl);
-			}
-		}
-
-		if (progressBarEl) {
-			progressBarEl.removeClass('is-hidden');
-			this.updateProgressBarContent(progressBarEl, checked, total, percentage);
-		}
-
-		// Update status bar
-		this.statusBarItem.setText(`Tasks: ${checked}/${total} (${percentage}%)`);
-	}
-
-	/**
-	 * Creates the progress bar element and inserts it in the header
-	 */
-	private createProgressBar(view: MarkdownView): HTMLElement | null {
-		// Get the view header actions area
-		const viewActions = view.containerEl.querySelector('.view-actions');
-
-		if (!viewActions) return null;
-
-		// Create the progress bar container
-		const progressBarEl = createDiv('simple-progress-bar-container');
-
-		// Insert before the view actions (to the left of the view mode buttons)
-		viewActions.parentElement?.insertBefore(progressBarEl, viewActions);
-
-		return progressBarEl;
-	}
-
-	/**
-	 * Updates the progress bar HTML content
-	 */
-	private updateProgressBarContent(progressBarEl: HTMLElement, checked: number, total: number, percentage: number) {
-		progressBarEl.innerHTML = `
-			<div class="simple-progress-bar-text">${checked}/${total} (${percentage}%)</div>
-			<div class="simple-progress-bar-track">
-				<div class="simple-progress-bar-fill" style="width: ${percentage}%"></div>
-			</div>
-		`;
 	}
 
 	/**
@@ -216,129 +150,6 @@ export default class SimpleProgressBarPlugin extends Plugin {
 			this.ribbonIconEl.addClass('clickable-icon');
 			this.ribbonIconEl.parentElement?.appendChild(this.ribbonIconEl);
 		}
-	}
-
-	/**
-	 * Renders an embedded progress bar in a code block
-	 */
-	private renderEmbeddedProgressBar(source: string, el: HTMLElement, ctx: any) {
-		// Store reference for later updates
-		this.embeddedBars.set(el, { source, ctx });
-
-		// Render the initial state with a small delay to ensure content is loaded
-		setTimeout(() => {
-			this.updateEmbeddedBar(el, source, ctx);
-		}, 100);
-	}
-
-	/**
-	 * Updates a single embedded progress bar
-	 */
-	private updateEmbeddedBar(el: HTMLElement, source: string, ctx: any) {
-		// Clear existing content
-		el.empty();
-
-		// Get the label text (default to "Progress")
-		const labelText = source.trim() || 'Progress';
-
-		// Get the active view to access the file content
-		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-		if (!view) return;
-
-		const content = view.editor.getValue();
-
-		// Find the section containing this code block
-		const { total, checked } = this.countCheckboxesInSection(content, ctx);
-
-		if (total === 0) {
-			el.createEl('div', {
-				text: 'No checkboxes in this section',
-				cls: 'sp-bar-no-tasks'
-			});
-			return;
-		}
-
-		// Calculate percentage
-		const percentage = Math.round((checked / total) * 100);
-
-		// Create the progress bar container
-		const container = el.createDiv('sp-bar-embedded-container');
-
-		// Add label on the left
-		container.createEl('div', {
-			text: labelText,
-			cls: 'sp-bar-embedded-label'
-		});
-
-		// Add progress bar and text container
-		const progressContainer = container.createDiv('sp-bar-embedded-progress');
-
-		// Add progress bar track
-		const track = progressContainer.createDiv('sp-bar-embedded-track');
-		track.createDiv('sp-bar-embedded-fill').style.width = `${percentage}%`;
-
-		// Add text on the right
-		progressContainer.createEl('div', {
-			text: `${checked}/${total} (${percentage}%)`,
-			cls: 'sp-bar-embedded-text'
-		});
-	}
-
-	/**
-	 * Updates all embedded progress bars
-	 */
-	private updateAllEmbeddedBars() {
-		this.embeddedBars.forEach((data, el) => {
-			// Check if element still exists in DOM
-			if (el.isConnected) {
-				this.updateEmbeddedBar(el, data.source, data.ctx);
-			} else {
-				// Clean up removed elements
-				this.embeddedBars.delete(el);
-			}
-		});
-	}
-
-	/**
-	 * Counts checkboxes in the section containing the code block
-	 */
-	private countCheckboxesInSection(content: string, ctx: any): { total: number; checked: number } {
-		// Get the line number where this code block appears
-		const info = ctx.getSectionInfo(ctx.el);
-		if (!info) return { total: 0, checked: 0 };
-
-		const lines = content.split('\n');
-		const codeBlockLine = info.lineStart;
-
-		// Find the heading above this code block
-		let sectionStart = 0;
-		let sectionLevel = 0;
-
-		// Search backwards for a heading
-		for (let i = codeBlockLine - 1; i >= 0; i--) {
-			const line = lines[i];
-			const headingMatch = line.match(/^(#{1,6})\s+/);
-			if (headingMatch) {
-				sectionStart = i;
-				sectionLevel = headingMatch[1].length;
-				break;
-			}
-		}
-
-		// Find the end of this section (next heading of same or higher level)
-		let sectionEnd = lines.length;
-		for (let i = codeBlockLine + 1; i < lines.length; i++) {
-			const line = lines[i];
-			const headingMatch = line.match(/^(#{1,6})\s+/);
-			if (headingMatch && headingMatch[1].length <= sectionLevel) {
-				sectionEnd = i;
-				break;
-			}
-		}
-
-		// Count checkboxes in this section
-		const sectionContent = lines.slice(sectionStart, sectionEnd).join('\n');
-		return this.countCheckboxes(sectionContent);
 	}
 }
 
