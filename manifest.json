@@ -1,0 +1,10 @@
+{
+  "id": "simple-progress-bar",
+  "name": "Simple Progress Bar",
+  "version": "0.1.0",
+  "minAppVersion": "0.15.0",
+  "description": "A simple progress bar for check boxes",
+  "author": "Toby Chen",
+  "authorUrl": "https://github.com/pochihh",
+  "isDesktopOnly": false
+}

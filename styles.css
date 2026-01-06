@@ -1,0 +1,90 @@
+/* Container for the minimal progress bar in header */
+.simple-progress-bar-container {
+	display: flex !important;
+	align-items: center;
+	gap: 8px;
+	margin-right: 12px;
+}
+
+/* Hide the progress bar when not needed */
+.simple-progress-bar-container.is-hidden {
+	display: none !important;
+}
+
+/* The track (background/unfilled portion) */
+.simple-progress-bar-track {
+	width: 150px;
+	height: 6px;
+	background-color: var(--background-modifier-border);
+	border-radius: 3px;
+	overflow: hidden;
+	position: relative;
+}
+
+/* The filled portion - uses theme accent color */
+.simple-progress-bar-fill {
+	height: 100%;
+	background-color: var(--interactive-accent);
+	border-radius: 3px;
+	transition: width 0.3s ease;
+}
+
+/* The text showing percentage */
+.simple-progress-bar-text {
+	font-size: 13px;
+	color: var(--text-muted);
+	white-space: nowrap;
+	font-weight: 500;
+}
+
+/* Embedded progress bar styles */
+.sp-bar-embedded-container {
+	display: block;
+	padding: 8px 0;
+	max-width: 280px;
+	margin-left: 5px;
+}
+
+.sp-bar-embedded-label {
+	font-size: 13px;
+	font-weight: 500;
+	color: var(--text-normal);
+	margin-bottom: 0px;
+}
+
+.sp-bar-embedded-progress {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.sp-bar-embedded-text {
+	font-size: 13px;
+	color: var(--text-muted);
+	white-space: nowrap;
+	min-width: 80px;
+	text-align: left;
+}
+
+.sp-bar-embedded-track {
+	flex: 1;
+	height: 6px;
+	background-color: var(--background-modifier-border);
+	border-radius: 3px;
+	overflow: hidden;
+	position: relative;
+}
+
+.sp-bar-embedded-fill {
+	height: 100%;
+	background-color: var(--interactive-accent);
+	border-radius: 3px;
+	transition: width 0.3s ease;
+}
+
+.sp-bar-no-tasks {
+	padding: 8px 12px;
+	color: var(--text-muted);
+	font-size: 13px;
+	font-style: italic;
+}

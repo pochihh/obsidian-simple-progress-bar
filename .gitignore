@@ -1,0 +1,16 @@
+# Node
+node_modules
+
+# Build
+main.js
+*.js.map
+
+# macOS
+.DS_Store
+
+# Obsidian
+data.json
+
+# Tools
+.vscode/
+.claude/
