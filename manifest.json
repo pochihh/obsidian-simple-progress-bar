@@ -3,7 +3,7 @@
   "name": "Simple Progress Bar",
   "version": "0.1.0",
   "minAppVersion": "0.15.0",
-  "description": "A simple progress bar for check boxes",
+  "description": "A minimal and elegant plugin that visualizes your checkbox completion with beautiful progress bars.",
   "author": "Toby Chen",
   "authorUrl": "https://github.com/pochihh",
   "isDesktopOnly": false
