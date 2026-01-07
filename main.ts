@@ -20,8 +20,6 @@ export default class SimpleProgressBarPlugin extends Plugin {
 	settings: ProgressBarSettings;
 
 	async onload() {
-		console.log('Loading Simple Progress Bar plugin');
-
 		// Initialize progress bar managers
 		this.noteProgressBar = new NoteProgressBar();
 		this.sectionProgressBar = new SectionProgressBar();
@@ -53,7 +51,6 @@ export default class SimpleProgressBarPlugin extends Plugin {
 		// Register an event when the active leaf changes (switching notes)
 		this.registerEvent(
 			this.app.workspace.on('active-leaf-change', () => {
-				console.log('[LEAF-CHANGE] Event fired');
 				this.updateProgressBar();
 			})
 		);
@@ -87,7 +84,6 @@ export default class SimpleProgressBarPlugin extends Plugin {
 	}
 
 	onunload() {
-		console.log('Unloading Simple Progress Bar plugin');
 		// Clean up all progress bars
 		this.noteProgressBar.cleanup();
 	}

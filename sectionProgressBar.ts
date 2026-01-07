@@ -27,6 +27,9 @@ export class SectionProgressBar {
 		// Idempotent: only applies if the very first line is ```sp-bar.
 		const firstLine = view.editor.getLine(0);
 		if (firstLine && firstLine.startsWith('```sp-bar')) {
+			console.warn(
+				'[simple-progress-bar] Added leading blank line before top sp-bar code block as a temporary workaround; see README known issues.'
+			);
 			const contentWithLeadingNewline = '\n' + view.editor.getValue();
 			view.editor.setValue(contentWithLeadingNewline);
 		}
@@ -73,7 +76,6 @@ export class SectionProgressBar {
 
 		// If we switched to a new file, clear the old file's bars
 		if (this.currentFilePath !== null && this.currentFilePath !== filePath) {
-			console.log(`[RENDER] Switching from ${this.currentFilePath} to ${filePath}, clearing old bars`);
 			this.embeddedBars.delete(this.currentFilePath);
 		}
 		this.currentFilePath = filePath;
@@ -88,11 +90,9 @@ export class SectionProgressBar {
 		let lineStart = 0;
 
 		if (!sectionInfo) {
-			console.log(`[RENDER] No sectionInfo for source="${source}"`);
 			// Fallback: Calculate from content by finding this specific code block
 			const codeBlockPattern = /^```sp-bar\s*\n/gm;
 			const matches = [...view.editor.getValue().matchAll(codeBlockPattern)];
-			console.log(`[RENDER] Found ${matches.length} sp-bar blocks total`);
 
 			// Find this bar by checking which match corresponds to this element
 			for (let i = 0; i < matches.length; i++) {
@@ -104,23 +104,19 @@ export class SectionProgressBar {
 				const existingBar = this.embeddedBars.get(filePath)!.find(b => b.lineStart === calculatedLine);
 				if (!existingBar) {
 					lineStart = calculatedLine;
-					console.log(`[RENDER] Calculated lineStart=${lineStart} for this bar`);
 					break;
 				}
 			}
 		} else {
 			lineStart = sectionInfo.lineStart;
-			console.log(`[RENDER] Got lineStart=${lineStart} from sectionInfo`);
 		}
 
 		// Use lineStart as the unique ID (since each bar is on a different line)
 		const barId = lineStart;
-		console.log(`[RENDER] Using barId=${barId} for source="${source}"`);
 
 		// Check if this bar already exists (to prevent duplicates in our array)
 		const existingBar = this.embeddedBars.get(filePath)!.find(b => b.id === barId);
 		if (existingBar) {
-			console.log(`[RENDER] Bar ID=${barId} exists, updating element reference`);
 			// Obsidian re-rendered this bar with a new DOM element
 			// Update our stored reference to point to the new element
 			existingBar.el = el;
@@ -128,7 +124,6 @@ export class SectionProgressBar {
 			existingBar.label = source.trim() || 'Progress';
 			existingBar.ctx = ctx;
 		} else {
-			console.log(`[RENDER] Bar ID=${barId} is new, adding to array`);
 			// Add new bar
 			this.embeddedBars.get(filePath)!.push({
 				el,
@@ -142,7 +137,6 @@ export class SectionProgressBar {
 
 		// Store the ID on the element for later lookup
 		el.dataset.barId = barId.toString();
-		console.log(`[RENDER] Total bars: ${this.embeddedBars.get(filePath)!.length}, IDs: ${this.embeddedBars.get(filePath)!.map(b => b.id).join(', ')}`);
 
 		// Use requestAnimationFrame to ensure DOM is ready and getSectionInfo is stable
 		requestAnimationFrame(() => {
@@ -161,7 +155,6 @@ export class SectionProgressBar {
 		const barInfo = bars.find(bar => bar.id === barId);
 
 		if (!barInfo) {
-			console.log(`[UPDATE] ERROR: Cannot find bar with ID=${barId}`);
 			return;
 		}
 
@@ -170,7 +163,6 @@ export class SectionProgressBar {
 		const labelText = barInfo.label;
 
 		if (!el) {
-			console.log(`[UPDATE] WARNING: Bar ID=${barId} has no element; skipping`);
 			return;
 		}
 
@@ -183,20 +175,15 @@ export class SectionProgressBar {
 
 		// Ensure the element matches the expected barId; skip mismatches to avoid offset rendering
 		if (el.dataset.barId && el.dataset.barId !== barId.toString()) {
-			console.log(`[UPDATE] Bar ID=${barId} skipped due to dataset mismatch (found ${el.dataset.barId})`);
 			return;
 		}
 
 		const content = view.editor.getValue().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
-		console.log(`[UPDATE] source="${source}", barId="${barId}", total bars=${bars.length}`);
-
 		const codeBlockLine = barInfo.lineStart;
-		console.log(`[UPDATE] Bar ID=${barId} using lineStart=${codeBlockLine}`);
 
 		// Find the section containing this code block
 		const { total, checked } = this.countCheckboxesInSection(content, codeBlockLine);
-		console.log(`[UPDATE] Bar ID=${barId} counted ${checked}/${total}`);
 
 		if (total === 0) {
 			el.createEl('div', {
@@ -237,20 +224,16 @@ export class SectionProgressBar {
 	 */
 	updateAllEmbeddedBars(view: MarkdownView) {
 		this.indexBars(view);
-		console.log(`[UPDATE-ALL] Total files with bars: ${this.embeddedBars.size}`);
 		for (const [filePath, bars] of this.embeddedBars) {
-			console.log(`[UPDATE-ALL] File: ${filePath}, bars: ${bars.length}, IDs: ${bars.map(b => b.id).join(', ')}`);
 			for (const bar of bars) {
 				// Only update if the element is still connected to the DOM
 				if (bar.el && bar.el.isConnected) {
 					if (bar.el.dataset.barId && bar.el.dataset.barId !== bar.id.toString()) {
-						console.log(`[UPDATE-ALL] Skipping bar ID=${bar.id} due to dataset mismatch (${bar.el.dataset.barId})`);
 						continue;
 					}
 					this.updateEmbeddedBar(filePath, bar.id, view);
 					continue;
 				}
-				console.log(`[UPDATE-ALL] Bar ID=${bar.id} is not connected to DOM, skipping`);
 			}
 		}
 	}
