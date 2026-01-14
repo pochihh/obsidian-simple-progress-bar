@@ -1,10 +1,10 @@
-import { MarkdownView } from 'obsidian';
+import { MarkdownView, MarkdownPostProcessorContext } from 'obsidian';
 
 interface ProgressBarInfo {
-	el: HTMLElement;
+	el: HTMLElement | null;
 	source: string;
 	label: string;
-	ctx: any | null;
+	ctx: MarkdownPostProcessorContext | null;
 	lineStart: number;
 	id: number;
 }
@@ -56,7 +56,7 @@ export class SectionProgressBar {
 				lineStart,
 				label,
 				source: label,
-				el: existingBar?.el ?? (null as any as HTMLElement),
+				el: existingBar?.el ?? null,
 				ctx: existingBar?.ctx ?? null
 			});
 		}
@@ -68,7 +68,7 @@ export class SectionProgressBar {
 	/**
 	 * Renders an embedded progress bar in a code block
 	 */
-	renderEmbeddedProgressBar(source: string, el: HTMLElement, ctx: any, view: MarkdownView) {
+	renderEmbeddedProgressBar(source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext, view: MarkdownView) {
 		// Store reference for later updates
 		const filePath = ctx.sourcePath;
 

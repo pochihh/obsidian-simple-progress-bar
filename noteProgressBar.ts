@@ -83,12 +83,15 @@ export class NoteProgressBar {
 	 * Updates the progress bar HTML content
 	 */
 	private updateProgressBarContent(progressBarEl: HTMLElement, checked: number, total: number, percentage: number) {
-		progressBarEl.innerHTML = `
-			<div class="simple-progress-bar-text">${checked}/${total} (${percentage}%)</div>
-			<div class="simple-progress-bar-track">
-				<div class="simple-progress-bar-fill" style="width: ${percentage}%"></div>
-			</div>
-		`;
+		progressBarEl.empty();
+
+		progressBarEl.createEl('div', {
+			text: `${checked}/${total} (${percentage}%)`,
+			cls: 'simple-progress-bar-text'
+		});
+
+		const track = progressBarEl.createDiv('simple-progress-bar-track');
+		track.createDiv('simple-progress-bar-fill').style.width = `${percentage}%`;
 	}
 
 	/**
