@@ -162,7 +162,9 @@ class ProgressBarSettingTab extends PluginSettingTab {
 
 		containerEl.empty();
 
-		containerEl.createEl('h2', { text: 'Simple progress bar settings' });
+		new Setting(containerEl)
+			.setName('Simple progress bar settings')
+			.setHeading();
 
 		// Toggle to show/hide progress bar
 		new Setting(containerEl)
