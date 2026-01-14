@@ -36,7 +36,7 @@ export default class SimpleProgressBarPlugin extends Plugin {
 		// Add command to toggle progress bar
 		this.addCommand({
 			id: 'toggle-progress-bar',
-			name: 'Toggle Note Progress Bar',
+			name: 'Toggle note progress bar',
 			callback: async () => {
 				this.settings.showNoteProgressBar = !this.settings.showNoteProgressBar;
 				await this.saveSettings();
@@ -46,7 +46,7 @@ export default class SimpleProgressBarPlugin extends Plugin {
 
 		// Add a status bar item (optional, for debugging)
 		this.statusBarItem = this.addStatusBarItem();
-		this.statusBarItem.setText('Progress Bar Ready');
+		this.statusBarItem.setText('Progress bar ready');
 
 		// Register an event when the active leaf changes (switching notes)
 		this.registerEvent(
@@ -111,7 +111,7 @@ export default class SimpleProgressBarPlugin extends Plugin {
 		// Check if progress bar is enabled in settings
 		if (!this.settings.showNoteProgressBar) {
 			this.noteProgressBar.hideProgressBar(view);
-			this.statusBarItem.setText('Progress Bar: Off');
+			this.statusBarItem.setText('Progress bar: off');
 			return;
 		}
 
@@ -137,7 +137,7 @@ export default class SimpleProgressBarPlugin extends Plugin {
 
 		// Add ribbon icon if enabled in settings
 		if (this.settings.showRibbonIcon) {
-			this.ribbonIconEl = this.addRibbonIcon('square-split-horizontal', 'Toggle Note Progress Bar', async () => {
+			this.ribbonIconEl = this.addRibbonIcon('square-split-horizontal', 'Toggle note progress bar', async () => {
 				this.settings.showNoteProgressBar = !this.settings.showNoteProgressBar;
 				await this.saveSettings();
 				this.updateProgressBar();
@@ -162,7 +162,7 @@ class ProgressBarSettingTab extends PluginSettingTab {
 
 		containerEl.empty();
 
-		containerEl.createEl('h2', { text: 'Simple Progress Bar Settings' });
+		containerEl.createEl('h2', { text: 'Simple progress bar settings' });
 
 		// Toggle to show/hide progress bar
 		new Setting(containerEl)
