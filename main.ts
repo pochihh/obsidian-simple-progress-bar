@@ -162,14 +162,10 @@ class ProgressBarSettingTab extends PluginSettingTab {
 
 		containerEl.empty();
 
-		new Setting(containerEl)
-			.setName('Simple progress bar settings')
-			.setHeading();
-
 		// Toggle to show/hide progress bar
 		new Setting(containerEl)
-			.setName('Show progress bar')
-			.setDesc('Display the progress bar in the note header')
+			.setName('Show note progress bar')
+			.setDesc('Display the note progress bar in the note header')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.showNoteProgressBar)
 				.onChange(async (value) => {
@@ -181,7 +177,7 @@ class ProgressBarSettingTab extends PluginSettingTab {
 		// Toggle to show/hide ribbon icon
 		new Setting(containerEl)
 			.setName('Show ribbon icon')
-			.setDesc('Display the toggle button in the left sidebar ribbon')
+			.setDesc('Display the toggle button in the left sidebar ribbon to enable/disable the note progress bar')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.showRibbonIcon)
 				.onChange(async (value) => {
