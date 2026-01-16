@@ -1,4 +1,5 @@
 import { MarkdownView, MarkdownPostProcessorContext } from 'obsidian';
+import { ProgressBarComponent } from './progressBarComponent';
 
 interface ProgressBarInfo {
 	el: HTMLElement | null;
@@ -208,9 +209,13 @@ export class SectionProgressBar {
 		// Add progress bar and text container
 		const progressContainer = container.createDiv('sp-bar-embedded-progress');
 
-		// Add progress bar track
-		const track = progressContainer.createDiv('sp-bar-embedded-track');
-		track.createDiv('sp-bar-embedded-fill').style.width = `${percentage}%`;
+		// Use the ProgressBarComponent to create the progress bar with celebration animation
+		ProgressBarComponent.create(
+			progressContainer,
+			percentage,
+			'sp-bar-embedded-track',
+			'sp-bar-embedded-fill'
+		);
 
 		// Add text on the right
 		progressContainer.createEl('div', {

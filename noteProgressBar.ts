@@ -1,4 +1,5 @@
 import { MarkdownView } from 'obsidian';
+import { ProgressBarComponent } from './progressBarComponent';
 
 /**
  * Manages the note-level progress bar displayed in the header
@@ -90,8 +91,13 @@ export class NoteProgressBar {
 			cls: 'simple-progress-bar-text'
 		});
 
-		const track = progressBarEl.createDiv('simple-progress-bar-track');
-		track.createDiv('simple-progress-bar-fill').style.width = `${percentage}%`;
+		// Use the ProgressBarComponent to create the progress bar with celebration animation
+		ProgressBarComponent.create(
+			progressBarEl,
+			percentage,
+			'simple-progress-bar-track',
+			'simple-progress-bar-fill'
+		);
 	}
 
 	/**
