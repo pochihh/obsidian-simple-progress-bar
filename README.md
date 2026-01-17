@@ -2,23 +2,24 @@
 
 A minimal and elegant Obsidian plugin that visualizes your checkbox completion with beautiful progress bars.
 
-![Demo](images/simple_progress_bar_demo.png)
+<!-- ![Demo](images/simple_progress_bar_demo.png) -->
 
 ## Features
-
-### Note Progress Bar
-Displays a clean progress bar in the note header showing completion for all checkboxes in the current note. Updates in real-time as you check off tasks.
-
 ### Section Progress Bar
+![](images/sectionProgressBar.gif)
 Track progress for specific sections using embedded progress bars. Simply add a code block:
 
 ````markdown
 ```sp-bar
-Progress
+[YOUR TEXT]
 ```
 ````
 
 The section progress bar automatically counts checkboxes within the same heading section.
+
+### Note Progress Bar
+Displays a clean progress bar in the note header showing completion for all checkboxes in the current note. Updates in real-time as you check off tasks.
+![](images/noteProgressBar.png)
 
 ## Usage
 
