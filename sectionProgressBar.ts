@@ -48,7 +48,7 @@ export class SectionProgressBar {
 		while ((match = pattern.exec(content)) !== null) {
 			const before = content.substring(0, match.index);
 			const lineStart = before.split('\n').length - 1;
-			const label = (match[1] || '').trim() || 'Progress';
+			const label = (match[1] || '').trim();
 			const id = lineStart;
 
 			const existingBar = existingById.get(id);
@@ -122,14 +122,14 @@ export class SectionProgressBar {
 			// Update our stored reference to point to the new element
 			existingBar.el = el;
 			existingBar.source = source;
-			existingBar.label = source.trim() || 'Progress';
+			existingBar.label = source.trim();
 			existingBar.ctx = ctx;
 		} else {
 			// Add new bar
 			this.embeddedBars.get(filePath)!.push({
 				el,
 				source,
-				label: source.trim() || 'Progress',
+				label: source.trim(),
 				ctx,
 				lineStart: lineStart,
 				id: barId
@@ -169,8 +169,8 @@ export class SectionProgressBar {
 
 		el.empty();
 
-		// Get the label text (default to "Progress")
-		const label = labelText || source.trim() || 'Progress';
+		// Get the label text (no default)
+		const label = labelText || source.trim();
 
 		if (!view || !view.file) return;
 
@@ -200,11 +200,13 @@ export class SectionProgressBar {
 		// Create the progress bar container
 		const container = el.createDiv('sp-bar-embedded-container');
 
-		// Add label on the left
-		container.createEl('div', {
-			text: label,
-			cls: 'sp-bar-embedded-label'
-		});
+		// Add label on the left (only if there's text)
+		if (label) {
+			container.createEl('div', {
+				text: label,
+				cls: 'sp-bar-embedded-label'
+			});
+		}
 
 		// Add progress bar and text container
 		const progressContainer = container.createDiv('sp-bar-embedded-progress');
