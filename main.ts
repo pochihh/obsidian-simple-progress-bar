@@ -5,11 +5,15 @@ import { SectionProgressBar } from './sectionProgressBar';
 interface ProgressBarSettings {
 	showNoteProgressBar: boolean;
 	showRibbonIcon: boolean;
+	barWidth: number;
+	barHeight: number;
 }
 
 const DEFAULT_SETTINGS: ProgressBarSettings = {
 	showNoteProgressBar: true,
-	showRibbonIcon: false
+	showRibbonIcon: false,
+	barWidth: 20,
+	barHeight: 6
 };
 
 export default class SimpleProgressBarPlugin extends Plugin {
@@ -26,6 +30,7 @@ export default class SimpleProgressBarPlugin extends Plugin {
 
 		// Load settings
 		await this.loadSettings();
+		this.applyBarStyles();
 
 		// Add settings tab
 		this.addSettingTab(new ProgressBarSettingTab(this.app, this));
@@ -94,6 +99,12 @@ export default class SimpleProgressBarPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+		this.applyBarStyles();
+	}
+
+	applyBarStyles() {
+		document.body.style.setProperty('--spb-bar-width', `${this.settings.barWidth}%`);
+		document.body.style.setProperty('--spb-bar-height', `${this.settings.barHeight}px`);
 	}
 
 	/**
@@ -184,6 +195,32 @@ class ProgressBarSettingTab extends PluginSettingTab {
 					this.plugin.settings.showRibbonIcon = value;
 					await this.plugin.saveSettings();
 					this.plugin.updateRibbonIcon();
+				}));
+
+		// Slider to control bar width
+		new Setting(containerEl)
+			.setName('Bar width')
+			.setDesc('Width of the progress bar (% of available space)')
+			.addSlider(slider => slider
+				.setLimits(5, 100, 5)
+				.setValue(this.plugin.settings.barWidth)
+				.setDynamicTooltip()
+				.onChange(async (value) => {
+					this.plugin.settings.barWidth = value;
+					await this.plugin.saveSettings();
+				}));
+
+		// Slider to control bar height
+		new Setting(containerEl)
+			.setName('Bar height')
+			.setDesc('Height of the progress bar in pixels')
+			.addSlider(slider => slider
+				.setLimits(2, 20, 1)
+				.setValue(this.plugin.settings.barHeight)
+				.setDynamicTooltip()
+				.onChange(async (value) => {
+					this.plugin.settings.barHeight = value;
+					await this.plugin.saveSettings();
 				}));
 	}
 }
