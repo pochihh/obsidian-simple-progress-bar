@@ -33,7 +33,7 @@ The note progress bar appears automatically in the header when your note contain
 ```
 
 ### Embedded Section Progress
-Add progress tracking to specific sections:
+Add progress tracking to specific sections with the command palette command **Simple Progress Bar: Insert inline progress bar**, or type the code block manually:
 
 ````markdown
 ## Section 1
@@ -41,15 +41,16 @@ Add progress tracking to specific sections:
 Progress
 ```
 
-- [ ] Task A
+- [x] Task A
 - [x] Task B
 - [ ] Task C
 ````
 
-The embedded bar will show: `2/3 (67%)`
+The embedded bar will show: `2/3 (67%)`. If you select text before running the insert command, the selected text becomes the bar label.
 
 ## Settings
 
+- The settings page includes a quick-start card with exact command names.
 - **Show in note header** - Toggle the note progress bar on/off.
 
 ## Commands
@@ -60,6 +61,8 @@ Use these exact commands from Obsidian's command palette:
 - **Simple Progress Bar: Toggle note progress bar** - Quickly show/hide the note progress bar.
 - **Simple Progress Bar: Show note progress bar** - Show the note progress bar.
 - **Simple Progress Bar: Hide note progress bar** - Hide the note progress bar.
+
+The insert command is available from the command palette after the plugin is enabled. Open a markdown note before running it so the plugin knows where to insert the progress bar.
 
 ## Installation
 

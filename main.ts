@@ -1,4 +1,4 @@
-import { App, Plugin, PluginSettingTab, Setting, MarkdownView } from 'obsidian';
+import { App, Editor, MarkdownView, Notice, Plugin, PluginSettingTab, Setting, setIcon } from 'obsidian';
 import { NoteProgressBar } from './noteProgressBar';
 import { SectionProgressBar } from './sectionProgressBar';
 
@@ -49,11 +49,14 @@ export default class SimpleProgressBarPlugin extends Plugin {
 		this.addCommand({
 			id: 'insert-inline-progress-bar',
 			name: 'Insert inline progress bar',
-			editorCallback: (editor) => {
-				const selectedText = editor.getSelection().trim();
-				const label = selectedText || 'Progress';
-				const block = `\n\`\`\`sp-bar\n${label}\n\`\`\`\n`;
-				editor.replaceSelection(block);
+			callback: () => {
+				const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+				if (!view) {
+					new Notice('Open a markdown note to insert a progress bar.');
+					return;
+			}
+
+				this.insertInlineProgressBar(view.editor);
 			}
 		});
 
@@ -161,6 +164,16 @@ export default class SimpleProgressBarPlugin extends Plugin {
 		await this.saveSettings();
 		this.updateProgressBar();
 	}
+
+	private insertInlineProgressBar(editor: Editor) {
+		const selectedText = editor.getSelection().trim();
+		const label = selectedText || 'Progress';
+		const cursor = editor.getCursor();
+		const currentLine = editor.getLine(cursor.line) || '';
+		const prefix = currentLine.slice(0, cursor.ch).trim().length > 0 ? '\n' : '';
+		const block = `${prefix}\`\`\`sp-bar\n${label}\n\`\`\`\n`;
+		editor.replaceSelection(block);
+	}
 }
 
 class ProgressBarSettingTab extends PluginSettingTab {
@@ -173,19 +186,42 @@ class ProgressBarSettingTab extends PluginSettingTab {
 
 	display(): void {
 		const { containerEl } = this;
+		const inlineProgressBlock = '```sp-bar\nProgress\n```';
 
 		containerEl.empty();
 
-		const instructionsEl = containerEl.createDiv({ cls: 'sp-bar-settings-instructions' });
-		instructionsEl.createEl('h2', { text: 'How to use Simple Progress Bar' });
+		const instructionsEl = containerEl.createDiv({ cls: 'sp-bar-settings-help' });
+		instructionsEl.createDiv({ cls: 'sp-bar-settings-help-title', text: 'Simple Progress Bar' });
 		instructionsEl.createEl('p', {
-			text: 'The note progress bar appears in the active note header and counts every markdown checkbox in the note.'
+			cls: 'sp-bar-settings-help-description',
+			text: 'Shows task progress in the note header and supports inline section progress bars.'
 		});
-		instructionsEl.createEl('p', {
-			text: 'To add an inline/section progress bar, use the command Simple Progress Bar: Insert inline progress bar, or manually add a ```sp-bar code block with an optional label. The bar counts checkboxes in the same heading section.'
+
+		new Setting(containerEl)
+			.setName('Inline progress bar')
+			.setHeading();
+
+		new Setting(containerEl)
+			.setName('Insert with a command')
+			.setDesc('Run “Simple Progress Bar: Insert inline progress bar” from the command palette to insert an inline progress bar for the current heading section.');
+
+		const manualSetting = new Setting(containerEl)
+			.setName('Insert manually')
+			.setDesc('Paste this code block into a note to show progress for the current section. Change the text between the opening and closing lines to update the progress bar label.');
+		const codeWrapperEl = manualSetting.descEl.createDiv({ cls: 'sp-bar-settings-code-wrapper' });
+		codeWrapperEl.createEl('pre', { cls: 'sp-bar-settings-code-block' })
+			.createEl('code', { text: inlineProgressBlock });
+		const copyButtonEl = codeWrapperEl.createEl('button', {
+			cls: 'clickable-icon sp-bar-settings-copy-button',
+			attr: {
+				'aria-label': 'Copy sp-bar code block',
+				type: 'button'
+			}
 		});
-		instructionsEl.createEl('p', {
-			text: 'Exact commands: Simple Progress Bar: Insert inline progress bar; Simple Progress Bar: Toggle note progress bar; Simple Progress Bar: Show note progress bar; Simple Progress Bar: Hide note progress bar.'
+		setIcon(copyButtonEl, 'copy');
+		copyButtonEl.addEventListener('click', async () => {
+			await navigator.clipboard.writeText(inlineProgressBlock);
+			new Notice('Progress bar block copied.');
 		});
 
 		new Setting(containerEl)
@@ -193,8 +229,8 @@ class ProgressBarSettingTab extends PluginSettingTab {
 			.setHeading();
 
 		new Setting(containerEl)
-			.setName('Show in note header')
-			.setDesc('Displays progress for all markdown tasks in the active note. You can also automate this with the commands: Toggle, Show, and Hide note progress bar.')
+			.setName('Show note progress in the note header')
+			.setDesc('Displays progress for all markdown tasks in the active note.')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.showNoteProgressBar)
 				.onChange(async (value) => {
@@ -202,5 +238,8 @@ class ProgressBarSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 					this.plugin.updateProgressBar();
 				}));
+		new Setting(containerEl)
+			.setName('Commands')
+			.setDesc('Command palette: Toggle note progress bar, Show note progress bar, Hide note progress bar.');
 	}
 }
