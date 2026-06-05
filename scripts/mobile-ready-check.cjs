@@ -19,10 +19,10 @@ const forbidden = [
   [/from ['"]fs['"]|require\(['"]fs['"]\)/, 'fs import'],
   [/from ['"]path['"]|require\(['"]path['"]\)/, 'path import'],
   [/\bprocess\./, 'process global'],
-  [/\bwindow\.(setTimeout|requestAnimationFrame|matchMedia)/, 'window global; use activeWindow'],
+  [/\bactiveWindow\.(setTimeout|requestAnimationFrame)/, 'activeWindow timer API; Obsidian review requires window timer functions'],
   [/\bdocument\./, 'document global; scope through Obsidian elements where possible'],
-  [/(?<!\.)\bsetTimeout\(/, 'global setTimeout; use activeWindow.setTimeout'],
-  [/(?<!\.)\brequestAnimationFrame\(/, 'global requestAnimationFrame; use activeWindow.requestAnimationFrame'],
+  [/(?<!\.)\bsetTimeout\(/, 'global setTimeout; use window.setTimeout'],
+  [/(?<!\.)\brequestAnimationFrame\(/, 'global requestAnimationFrame; use window.requestAnimationFrame'],
 ];
 
 for (const file of sourceFiles) {

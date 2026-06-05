@@ -100,7 +100,7 @@ export class ProgressBarComponent {
 		wrapper.addClass('celebrating');
 
 		// Remove the class after animation completes to allow re-triggering
-		activeWindow.setTimeout(() => {
+		window.setTimeout(() => {
 			wrapper.removeClass('celebrating');
 		}, 1000);
 	}

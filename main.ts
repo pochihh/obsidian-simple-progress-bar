@@ -10,6 +10,15 @@ const DEFAULT_SETTINGS: ProgressBarSettings = {
 	showNoteProgressBar: true
 };
 
+function isProgressBarSettings(data: unknown): data is Partial<ProgressBarSettings> {
+	if (!data || typeof data !== 'object') {
+		return false;
+	}
+
+	const maybeSettings = data as Partial<Record<keyof ProgressBarSettings, unknown>>;
+	return maybeSettings.showNoteProgressBar === undefined || typeof maybeSettings.showNoteProgressBar === 'boolean';
+}
+
 export default class SimpleProgressBarPlugin extends Plugin {
 	private noteProgressBar: NoteProgressBar;
 	private sectionProgressBar: SectionProgressBar;
@@ -103,7 +112,7 @@ export default class SimpleProgressBarPlugin extends Plugin {
 		// Wait for workspace to be ready before initial update
 		this.app.workspace.onLayoutReady(() => {
 			// Add a small delay to ensure the editor content is fully loaded
-			activeWindow.setTimeout(() => {
+			window.setTimeout(() => {
 				this.updateProgressBar();
 			}, 100);
 		});
@@ -115,7 +124,11 @@ export default class SimpleProgressBarPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const loadedData: unknown = await this.loadData();
+		this.settings = {
+			...DEFAULT_SETTINGS,
+			...(isProgressBarSettings(loadedData) ? loadedData : {})
+		};
 	}
 
 	async saveSettings() {
@@ -149,12 +162,12 @@ export default class SimpleProgressBarPlugin extends Plugin {
 		}
 
 		this.updateScheduled = true;
-		activeWindow.setTimeout(() => {
+		window.setTimeout(() => {
 			this.updateScheduled = false;
 			this.updateProgressBar();
 			const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 			if (view) {
-				activeWindow.requestAnimationFrame(() => this.sectionProgressBar.updateAllEmbeddedBars(view));
+				window.requestAnimationFrame(() => this.sectionProgressBar.updateAllEmbeddedBars(view));
 			}
 		}, 0);
 	}
@@ -219,9 +232,10 @@ class ProgressBarSettingTab extends PluginSettingTab {
 			}
 		});
 		setIcon(copyButtonEl, 'copy');
-		copyButtonEl.addEventListener('click', async () => {
-			await navigator.clipboard.writeText(inlineProgressBlock);
-			new Notice('Progress bar block copied.');
+		copyButtonEl.addEventListener('click', () => {
+			void navigator.clipboard.writeText(inlineProgressBlock).then(() => {
+				new Notice('Progress bar block copied.');
+			});
 		});
 
 		new Setting(containerEl)

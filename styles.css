@@ -61,7 +61,7 @@
 }
 
 .simple-progress-bar-container {
-	display: flex !important;
+	display: flex;
 	align-items: center;
 	gap: 8px;
 	margin-right: 12px;
@@ -70,7 +70,7 @@
 
 /* Hide the progress bar when not needed */
 .simple-progress-bar-container.is-hidden {
-	display: none !important;
+	display: none;
 }
 
 /* The track (background/unfilled portion) */

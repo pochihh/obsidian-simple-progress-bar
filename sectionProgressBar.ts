@@ -138,8 +138,8 @@ export class SectionProgressBar {
 		el.dataset.barId = barId.toString();
 
 		// Use requestAnimationFrame to ensure DOM is ready and getSectionInfo is stable
-		activeWindow.requestAnimationFrame(() => {
-			activeWindow.requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
+			window.requestAnimationFrame(() => {
 				this.updateEmbeddedBar(filePath, barId, view);
 			});
 		});
