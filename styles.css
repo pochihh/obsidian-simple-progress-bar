@@ -22,20 +22,14 @@
 	line-height: var(--line-height-tight, 1.35);
 }
 
-.sp-bar-settings-code-wrapper {
-	position: relative;
-	width: fit-content;
-	min-width: 160px;
-	max-width: 100%;
-	margin: 8px 0 0;
-}
-
 .sp-bar-settings-code-block {
 	display: block;
 	box-sizing: border-box;
 	min-width: 160px;
-	margin: 0;
-	padding: 10px 36px 10px 10px;
+	width: fit-content;
+	max-width: 100%;
+	margin: 8px 0 0;
+	padding: 10px;
 	border: 1px solid var(--background-modifier-border);
 	border-radius: var(--radius-s, 6px);
 	background-color: var(--background-primary-alt);
@@ -43,21 +37,6 @@
 	font-size: var(--font-ui-smaller, 12px);
 	line-height: 1.35;
 	white-space: pre;
-}
-
-.sp-bar-settings-copy-button {
-	position: absolute;
-	top: 4px;
-	right: 4px;
-	width: 24px;
-	height: 24px;
-	padding: 4px;
-	color: var(--text-muted);
-}
-
-.sp-bar-settings-copy-button:hover {
-	color: var(--text-normal);
-	background-color: var(--background-modifier-hover);
 }
 
 .simple-progress-bar-container {

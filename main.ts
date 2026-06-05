@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, Notice, Plugin, PluginSettingTab, Setting, setIcon } from 'obsidian';
+import { App, Editor, MarkdownView, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
 import { NoteProgressBar } from './noteProgressBar';
 import { SectionProgressBar } from './sectionProgressBar';
 
@@ -221,22 +221,8 @@ class ProgressBarSettingTab extends PluginSettingTab {
 		const manualSetting = new Setting(containerEl)
 			.setName('Insert manually')
 			.setDesc('Paste this code block into a note to show progress for the current section. Change the text between the opening and closing lines to update the progress bar label.');
-		const codeWrapperEl = manualSetting.descEl.createDiv({ cls: 'sp-bar-settings-code-wrapper' });
-		codeWrapperEl.createEl('pre', { cls: 'sp-bar-settings-code-block' })
+		manualSetting.descEl.createEl('pre', { cls: 'sp-bar-settings-code-block' })
 			.createEl('code', { text: inlineProgressBlock });
-		const copyButtonEl = codeWrapperEl.createEl('button', {
-			cls: 'clickable-icon sp-bar-settings-copy-button',
-			attr: {
-				'aria-label': 'Copy sp-bar code block',
-				type: 'button'
-			}
-		});
-		setIcon(copyButtonEl, 'copy');
-		copyButtonEl.addEventListener('click', () => {
-			void navigator.clipboard.writeText(inlineProgressBlock).then(() => {
-				new Notice('Progress bar block copied.');
-			});
-		});
 
 		new Setting(containerEl)
 			.setName('Note progress bar')
