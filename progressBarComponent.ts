@@ -1,6 +1,19 @@
 /**
  * A reusable progress bar component with celebration animation
  */
+interface ProgressBarCreateOptions {
+	/**
+	 * Element used to persist progress state between DOM rebuilds. Defaults to
+	 * the container that receives the rendered progress bar.
+	 */
+	stateContainer?: HTMLElement;
+	/**
+	 * Explicit previous percentage for callers that track progress outside the
+	 * DOM, such as markdown post processors that Obsidian may recreate.
+	 */
+	previousPercentage?: number;
+}
+
 export class ProgressBarComponent {
 	/**
 	 * Creates a progress bar with sparkles and celebration animation
@@ -13,7 +26,8 @@ export class ProgressBarComponent {
 		container: HTMLElement,
 		percentage: number,
 		trackClass: string,
-		fillClass: string
+		fillClass: string,
+		options: ProgressBarCreateOptions = {}
 	): HTMLElement {
 		// Create a wrapper that will contain both the track and the sparkles
 		const wrapper = container.createDiv('progress-bar-wrapper');
@@ -25,8 +39,25 @@ export class ProgressBarComponent {
 		// Add sparkles outside the track but inside the wrapper
 		this.addSparkles(wrapper);
 
-		// Trigger celebration animation when 100% complete
-		if (percentage === 100) {
+		const stateContainer = options.stateContainer ?? container;
+		const previousPercentage = options.previousPercentage ?? Number(stateContainer.dataset.progressPercentage ?? NaN);
+		const now = activeWindow.performance?.now() ?? Date.now();
+		const newlyCompleted = percentage === 100 && previousPercentage !== 100;
+
+		stateContainer.dataset.progressPercentage = percentage.toString();
+
+		if (percentage < 100) {
+			delete stateContainer.dataset.celebratingUntil;
+			delete stateContainer.dataset.celebratingStartedAt;
+		}
+
+		// Trigger celebration animation only when the displayed progress crosses
+		// into 100%. A recompute that stays at 100% (for example because checking a
+		// nested task keeps both parent and child sections complete) should not
+		// replay the celebration.
+		if (newlyCompleted && !this.prefersReducedMotion()) {
+			stateContainer.dataset.celebratingStartedAt = now.toString();
+			stateContainer.dataset.celebratingUntil = (now + 1300).toString();
 			this.triggerCelebration(wrapper);
 		}
 
@@ -51,6 +82,10 @@ export class ProgressBarComponent {
 		}
 	}
 
+	private static prefersReducedMotion(): boolean {
+		return activeWindow.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+	}
+
 	/**
 	 * Triggers the celebration animation
 	 */
@@ -65,7 +100,7 @@ export class ProgressBarComponent {
 		wrapper.addClass('celebrating');
 
 		// Remove the class after animation completes to allow re-triggering
-		setTimeout(() => {
+		activeWindow.setTimeout(() => {
 			wrapper.removeClass('celebrating');
 		}, 1000);
 	}

@@ -14,8 +14,8 @@
 
 /* The track (background/unfilled portion) */
 .simple-progress-bar-track {
-	width: 150px;
-	min-width: 150px;
+	width: clamp(72px, 18vw, 150px);
+	min-width: 72px;
 	height: 6px;
 	background-color: var(--background-modifier-border);
 	border-radius: 3px;
@@ -43,7 +43,8 @@
 .sp-bar-embedded-container {
 	display: block;
 	padding: 8px 0;
-	max-width: 280px;
+	width: min(100%, 280px);
+	max-width: 100%;
 	margin-left: 5px;
 	overflow: visible;
 }
@@ -59,6 +60,7 @@
 	display: flex;
 	align-items: center;
 	gap: 12px;
+	min-width: 0;
 	overflow: visible;
 }
 
@@ -208,4 +210,67 @@
 	left: 135%;
 	top: 10px;
 	animation-delay: 0.8s;
+}
+
+@media (max-width: 480px), (hover: none) and (pointer: coarse) {
+	.simple-progress-bar-container {
+		gap: 4px;
+		margin-right: 6px;
+		max-width: 48vw;
+		min-width: 0;
+	}
+
+	.simple-progress-bar-container .progress-bar-wrapper {
+		min-width: 56px;
+		max-width: 96px;
+	}
+
+	.simple-progress-bar-track {
+		width: clamp(56px, 22vw, 96px);
+		min-width: 56px;
+	}
+
+	.simple-progress-bar-text,
+	.sp-bar-embedded-label,
+	.sp-bar-embedded-text,
+	.sp-bar-no-tasks {
+		font-size: var(--font-ui-smaller, 12px);
+	}
+
+	.sp-bar-embedded-container {
+		width: 100%;
+		margin-left: 0;
+		padding: 6px 0;
+	}
+
+	.sp-bar-embedded-progress {
+		gap: 8px;
+		flex-wrap: wrap;
+	}
+
+	.sp-bar-embedded-progress .progress-bar-wrapper {
+		flex: 1 1 120px;
+	}
+
+	.sp-bar-embedded-text {
+		min-width: auto;
+	}
+
+	.progress-sparkles svg:nth-child(4),
+	.progress-sparkles svg:nth-child(5) {
+		display: none;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.simple-progress-bar-fill,
+	.sp-bar-embedded-fill {
+		transition: none;
+	}
+
+	.progress-bar-wrapper.celebrating .simple-progress-bar-track,
+	.progress-bar-wrapper.celebrating .sp-bar-embedded-track,
+	.progress-bar-wrapper.celebrating .progress-sparkles svg {
+		animation: none;
+	}
 }

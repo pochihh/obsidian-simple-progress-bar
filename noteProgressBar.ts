@@ -20,7 +20,7 @@ export class NoteProgressBar {
 
 		// Get the content of the current note
 		const content = view.editor.getValue().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-		const { total, checked } = this.countCheckboxes(content);
+		const { total, checked } = this.countCheckboxesForView(view, content);
 
 		// If there are no checkboxes, hide the progress bar
 		if (total === 0) {
@@ -71,6 +71,12 @@ export class NoteProgressBar {
 
 		if (!viewActions) return null;
 
+		// If the plugin was reloaded while Obsidian kept the leaf DOM alive, there
+		// may be a header bar from the previous plugin instance that is no longer in
+		// our map. Remove it so stale 100% state cannot suppress or confuse future
+		// updates.
+		view.containerEl.querySelectorAll('.simple-progress-bar-container').forEach((el) => el.remove());
+
 		// Create the progress bar container
 		const progressBarEl = createDiv('simple-progress-bar-container');
 
@@ -84,10 +90,28 @@ export class NoteProgressBar {
 	 * Updates the progress bar HTML content
 	 */
 	private updateProgressBarContent(progressBarEl: HTMLElement, checked: number, total: number, percentage: number) {
+		const previousPercentage = Number(progressBarEl.dataset.progressPercentage ?? NaN);
+		const text = `${checked}/${total} (${percentage}%)`;
+
+		// If only the counts changed while the rounded percentage stayed the same,
+		// update the visible text/fill in place. This keeps an in-flight 100%
+		// celebration visible through duplicate refreshes, and prevents later
+		// 100%→100% recomputes from rebuilding/replaying the animation.
+		if (previousPercentage === percentage) {
+			const textEl = progressBarEl.querySelector<HTMLElement>('.simple-progress-bar-text');
+			const fillEl = progressBarEl.querySelector<HTMLElement>('.simple-progress-bar-fill');
+			if (textEl && fillEl) {
+				textEl.setText(text);
+				fillEl.style.width = `${percentage}%`;
+				progressBarEl.dataset.progressPercentage = percentage.toString();
+				return;
+			}
+		}
+
 		progressBarEl.empty();
 
-		progressBarEl.createEl('div', {
-			text: `${checked}/${total} (${percentage}%)`,
+		progressBarEl.createDiv({
+			text,
 			cls: 'simple-progress-bar-text'
 		});
 
@@ -101,14 +125,36 @@ export class NoteProgressBar {
 	}
 
 	/**
+	 * Counts checkboxes in the active view. Reading view toggles can change the
+	 * rendered checkbox state before the editor buffer reports a change, so use
+	 * visible rendered tasks in preview mode and fall back to markdown text in
+	 * source/live-preview mode.
+	 */
+	private countCheckboxesForView(view: MarkdownView, content: string): { total: number; checked: number } {
+		if (view.getMode?.() === 'preview') {
+			const renderedTasks = Array.from(view.contentEl.querySelectorAll<HTMLInputElement>('input.task-list-item-checkbox'))
+				.filter((checkbox) => checkbox.closest('.markdown-preview-view'));
+
+			if (renderedTasks.length > 0) {
+				return {
+					total: renderedTasks.length,
+					checked: renderedTasks.filter((checkbox) => checkbox.checked).length
+				};
+			}
+		}
+
+		return this.countCheckboxes(content);
+	}
+
+	/**
 	 * Counts checkboxes in the entire note
 	 * Returns: { total: number, checked: number }
 	 */
 	private countCheckboxes(content: string): { total: number; checked: number } {
 		// Match unchecked boxes: - [ ]
-		const uncheckedRegex = /- \[ \]/g;
+		const uncheckedRegex = /(^|\n)[\t ]*[-*+]\s+\[ \]/g;
 		// Match checked boxes: - [x] or - [X]
-		const checkedRegex = /- \[[xX]\]/g;
+		const checkedRegex = /(^|\n)[\t ]*[-*+]\s+\[[xX]\]/g;
 
 		const unchecked = (content.match(uncheckedRegex) || []).length;
 		const checked = (content.match(checkedRegex) || []).length;

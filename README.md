@@ -50,12 +50,16 @@ The embedded bar will show: `2/3 (67%)`
 
 ## Settings
 
-- **Show note progress bar** - Toggle the note progress bar on/off
-- **Show ribbon icon** - Add a toggle button to the left sidebar
+- **Show in note header** - Toggle the note progress bar on/off.
 
 ## Commands
 
-- **Toggle Note Progress Bar** - Quickly show/hide the note progress bar via command palette
+Use these exact commands from Obsidian's command palette:
+
+- **Simple Progress Bar: Insert inline progress bar** - Insert an `sp-bar` code block at the cursor. If text is selected, it becomes the progress bar label.
+- **Simple Progress Bar: Toggle note progress bar** - Quickly show/hide the note progress bar.
+- **Simple Progress Bar: Show note progress bar** - Show the note progress bar.
+- **Simple Progress Bar: Hide note progress bar** - Hide the note progress bar.
 
 ## Installation
 
@@ -68,6 +72,10 @@ The embedded bar will show: `2/3 (67%)`
 ### Development
 See [DEVELOPMENT.md](DEVELOPMENT.md) for instructions on building and testing locally.
 
+## Troubleshooting
+
+If the 100% completion animation does not play, or a local build looks stale after copying files, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+
 ## Features at a Glance
 
 - Clean, minimal design that adapts to your theme
@@ -79,7 +87,7 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for instructions on building and testing lo
 
 ## Known Issue
 
-- If a note begins immediately with an `sp-bar` code block on the first line, Obsidian keeps that block in edit mode and skips our processor. As a temporary workaround, the plugin will automatically insert a leading blank line for such notes so the bar renders. This is applied in-memory when the note loads; no other content is modified.
+- Obsidian may delay re-rendering a freshly edited `sp-bar` code block until the note view refreshes. If an embedded bar does not appear immediately after editing the code block itself, switch notes or toggle reading/source mode once.
 
 ## Support
 
