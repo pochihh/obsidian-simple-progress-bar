@@ -43,6 +43,9 @@
 	display: flex;
 	align-items: center;
 	gap: 8px;
+	width: min(var(--spb-bar-width, 20%), 48vw);
+	min-width: 0;
+	max-width: 100%;
 	margin-right: 12px;
 	overflow: visible;
 }
@@ -54,9 +57,9 @@
 
 /* The track (background/unfilled portion) */
 .simple-progress-bar-track {
-	width: clamp(72px, 18vw, 150px);
+	width: clamp(72px, 100%, 100%);
 	min-width: 72px;
-	height: 6px;
+	height: var(--spb-bar-height, 6px);
 	background-color: var(--background-modifier-border);
 	border-radius: 3px;
 	overflow: hidden;
@@ -83,7 +86,7 @@
 .sp-bar-embedded-container {
 	display: block;
 	padding: 8px 0;
-	width: min(100%, 280px);
+	width: var(--spb-bar-width, 20%);
 	max-width: 100%;
 	margin-left: 5px;
 	overflow: visible;
@@ -114,7 +117,7 @@
 
 .sp-bar-embedded-track {
 	width: 100%;
-	height: 6px;
+	height: var(--spb-bar-height, 6px);
 	background-color: var(--background-modifier-border);
 	border-radius: 3px;
 	overflow: hidden;
@@ -149,8 +152,9 @@
 }
 
 .simple-progress-bar-container .progress-bar-wrapper {
-	display: inline-block;
-	flex: 0 0 auto;
+	display: flex;
+	flex: 1 1 auto;
+	min-width: 72px;
 	overflow: visible;
 }
 
@@ -255,9 +259,9 @@
 @media (max-width: 480px), (hover: none) and (pointer: coarse) {
 	.simple-progress-bar-container {
 		gap: 4px;
-		margin-right: 6px;
-		max-width: 48vw;
+		width: min(var(--spb-bar-width, 20%), 48vw);
 		min-width: 0;
+		margin-right: 6px;
 	}
 
 	.simple-progress-bar-container .progress-bar-wrapper {
@@ -266,7 +270,6 @@
 	}
 
 	.simple-progress-bar-track {
-		width: clamp(56px, 22vw, 96px);
 		min-width: 56px;
 	}
 

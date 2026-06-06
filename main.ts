@@ -4,11 +4,19 @@ import { SectionProgressBar } from './sectionProgressBar';
 
 interface ProgressBarSettings {
 	showNoteProgressBar: boolean;
+	barWidth: number;
+	barHeight: number;
 }
 
 const DEFAULT_SETTINGS: ProgressBarSettings = {
-	showNoteProgressBar: true
+	showNoteProgressBar: true,
+	barWidth: 20,
+	barHeight: 6
 };
+
+function isNumberInRange(value: unknown, min: number, max: number): value is number {
+	return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
+}
 
 function isProgressBarSettings(data: unknown): data is Partial<ProgressBarSettings> {
 	if (!data || typeof data !== 'object') {
@@ -16,7 +24,11 @@ function isProgressBarSettings(data: unknown): data is Partial<ProgressBarSettin
 	}
 
 	const maybeSettings = data as Partial<Record<keyof ProgressBarSettings, unknown>>;
-	return maybeSettings.showNoteProgressBar === undefined || typeof maybeSettings.showNoteProgressBar === 'boolean';
+	return (
+		(maybeSettings.showNoteProgressBar === undefined || typeof maybeSettings.showNoteProgressBar === 'boolean') &&
+		(maybeSettings.barWidth === undefined || isNumberInRange(maybeSettings.barWidth, 5, 100)) &&
+		(maybeSettings.barHeight === undefined || isNumberInRange(maybeSettings.barHeight, 2, 20))
+	);
 }
 
 export default class SimpleProgressBarPlugin extends Plugin {
@@ -32,6 +44,7 @@ export default class SimpleProgressBarPlugin extends Plugin {
 
 		// Load settings
 		await this.loadSettings();
+		this.applyBarStyles();
 
 		// Add settings tab
 		this.addSettingTab(new ProgressBarSettingTab(this.app, this));
@@ -63,7 +76,7 @@ export default class SimpleProgressBarPlugin extends Plugin {
 				if (!view) {
 					new Notice('Open a markdown note to insert a progress bar.');
 					return;
-			}
+				}
 
 				this.insertInlineProgressBar(view.editor);
 			}
@@ -121,6 +134,8 @@ export default class SimpleProgressBarPlugin extends Plugin {
 	onunload() {
 		// Clean up all progress bars
 		this.noteProgressBar.cleanup();
+		this.app.workspace.containerEl.style.removeProperty('--spb-bar-width');
+		this.app.workspace.containerEl.style.removeProperty('--spb-bar-height');
 	}
 
 	async loadSettings() {
@@ -133,6 +148,12 @@ export default class SimpleProgressBarPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+		this.applyBarStyles();
+	}
+
+	applyBarStyles() {
+		this.app.workspace.containerEl.style.setProperty('--spb-bar-width', `${this.settings.barWidth}%`);
+		this.app.workspace.containerEl.style.setProperty('--spb-bar-height', `${this.settings.barHeight}px`);
 	}
 
 	/**
@@ -238,6 +259,33 @@ class ProgressBarSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 					this.plugin.updateProgressBar();
 				}));
+
+		new Setting(containerEl)
+			.setName('Progress bar width')
+			.setDesc('Controls the note header and inline section progress bar width as a percentage of the available space.')
+			.addSlider(slider => slider
+				.setLimits(5, 100, 5)
+				.setValue(this.plugin.settings.barWidth)
+				.setDynamicTooltip()
+				.onChange(async (value) => {
+					this.plugin.settings.barWidth = value;
+					await this.plugin.saveSettings();
+					this.plugin.updateProgressBar();
+				}));
+
+		new Setting(containerEl)
+			.setName('Progress bar height')
+			.setDesc('Controls the note header and inline section progress bar height in pixels.')
+			.addSlider(slider => slider
+				.setLimits(2, 20, 1)
+				.setValue(this.plugin.settings.barHeight)
+				.setDynamicTooltip()
+				.onChange(async (value) => {
+					this.plugin.settings.barHeight = value;
+					await this.plugin.saveSettings();
+					this.plugin.updateProgressBar();
+				}));
+
 		new Setting(containerEl)
 			.setName('Commands')
 			.setDesc('Command palette: Toggle note progress bar, Show note progress bar, Hide note progress bar.');
