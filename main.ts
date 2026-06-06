@@ -1,35 +1,7 @@
 import { App, Editor, MarkdownView, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
 import { NoteProgressBar } from './noteProgressBar';
 import { SectionProgressBar } from './sectionProgressBar';
-
-interface ProgressBarSettings {
-	showNoteProgressBar: boolean;
-	barWidth: number;
-	barHeight: number;
-}
-
-const DEFAULT_SETTINGS: ProgressBarSettings = {
-	showNoteProgressBar: true,
-	barWidth: 20,
-	barHeight: 6
-};
-
-function isNumberInRange(value: unknown, min: number, max: number): value is number {
-	return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
-}
-
-function isProgressBarSettings(data: unknown): data is Partial<ProgressBarSettings> {
-	if (!data || typeof data !== 'object') {
-		return false;
-	}
-
-	const maybeSettings = data as Partial<Record<keyof ProgressBarSettings, unknown>>;
-	return (
-		(maybeSettings.showNoteProgressBar === undefined || typeof maybeSettings.showNoteProgressBar === 'boolean') &&
-		(maybeSettings.barWidth === undefined || isNumberInRange(maybeSettings.barWidth, 5, 100)) &&
-		(maybeSettings.barHeight === undefined || isNumberInRange(maybeSettings.barHeight, 2, 20))
-	);
-}
+import { DEFAULT_SETTINGS, ProgressBarSettings, sanitizeProgressBarSettings } from './settings';
 
 export default class SimpleProgressBarPlugin extends Plugin {
 	private noteProgressBar: NoteProgressBar;
@@ -40,7 +12,7 @@ export default class SimpleProgressBarPlugin extends Plugin {
 	async onload() {
 		// Initialize progress bar managers
 		this.noteProgressBar = new NoteProgressBar();
-		this.sectionProgressBar = new SectionProgressBar();
+		this.sectionProgressBar = new SectionProgressBar(this.app);
 
 		// Load settings
 		await this.loadSettings();
@@ -85,7 +57,7 @@ export default class SimpleProgressBarPlugin extends Plugin {
 		// Register an event when the active leaf changes (switching notes)
 		this.registerEvent(
 			this.app.workspace.on('active-leaf-change', () => {
-				this.updateProgressBar();
+				this.updateProgressBars();
 			})
 		);
 
@@ -114,19 +86,18 @@ export default class SimpleProgressBarPlugin extends Plugin {
 		this.registerDomEvent(this.app.workspace.containerEl, 'change', handleTaskCheckboxChange);
 		this.registerDomEvent(this.app.workspace.containerEl, 'click', handleTaskCheckboxChange);
 
-		// Register code block processor for embedded progress bars
-		this.registerMarkdownCodeBlockProcessor('sp-bar', (source, el, ctx) => {
-			const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-			if (view) {
-				this.sectionProgressBar.renderEmbeddedProgressBar(source, el, ctx, view);
-			}
+		// Register code block processor for embedded progress bars. Do not depend on
+		// the active leaf here: Reading mode can render markdown before the active
+		// MarkdownView lookup is available or while another leaf is active.
+		this.registerMarkdownCodeBlockProcessor('sp-bar', async (source, el, ctx) => {
+			await this.sectionProgressBar.renderEmbeddedProgressBar(source, el, ctx, this.settings.showInlineProgressBar);
 		});
 
 		// Wait for workspace to be ready before initial update
 		this.app.workspace.onLayoutReady(() => {
 			// Add a small delay to ensure the editor content is fully loaded
 			window.setTimeout(() => {
-				this.updateProgressBar();
+				this.updateProgressBars();
 			}, 100);
 		});
 	}
@@ -134,16 +105,15 @@ export default class SimpleProgressBarPlugin extends Plugin {
 	onunload() {
 		// Clean up all progress bars
 		this.noteProgressBar.cleanup();
-		this.app.workspace.containerEl.style.removeProperty('--spb-bar-width');
-		this.app.workspace.containerEl.style.removeProperty('--spb-bar-height');
+		this.sectionProgressBar.cleanup();
+		this.app.workspace.containerEl.style.removeProperty('--spb-note-bar-width');
+		this.app.workspace.containerEl.style.removeProperty('--spb-note-bar-height');
+		this.app.workspace.containerEl.style.removeProperty('--spb-inline-bar-width');
+		this.app.workspace.containerEl.style.removeProperty('--spb-inline-bar-height');
 	}
 
 	async loadSettings() {
-		const loadedData: unknown = await this.loadData();
-		this.settings = {
-			...DEFAULT_SETTINGS,
-			...(isProgressBarSettings(loadedData) ? loadedData : {})
-		};
+		this.settings = sanitizeProgressBarSettings(await this.loadData());
 	}
 
 	async saveSettings() {
@@ -152,12 +122,15 @@ export default class SimpleProgressBarPlugin extends Plugin {
 	}
 
 	applyBarStyles() {
-		this.app.workspace.containerEl.style.setProperty('--spb-bar-width', `${this.settings.barWidth}%`);
-		this.app.workspace.containerEl.style.setProperty('--spb-bar-height', `${this.settings.barHeight}px`);
+		const workspaceEl = this.app.workspace.containerEl;
+		workspaceEl.style.setProperty('--spb-note-bar-width', `${this.settings.noteBarWidth}%`);
+		workspaceEl.style.setProperty('--spb-note-bar-height', `${this.settings.noteBarHeight}px`);
+		workspaceEl.style.setProperty('--spb-inline-bar-width', `${this.settings.inlineBarWidth}%`);
+		workspaceEl.style.setProperty('--spb-inline-bar-height', `${this.settings.inlineBarHeight}px`);
 	}
 
 	/**
-	 * Updates or creates the progress bar
+	 * Updates or creates the note progress bar
 	 */
 	updateProgressBar() {
 		// Get the active markdown view
@@ -177,6 +150,14 @@ export default class SimpleProgressBarPlugin extends Plugin {
 		this.noteProgressBar.updateProgressBar(view);
 	}
 
+	updateProgressBars() {
+		this.updateProgressBar();
+		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (view) {
+			this.sectionProgressBar.updateAllEmbeddedBars(view, this.settings.showInlineProgressBar);
+		}
+	}
+
 	private scheduleProgressBarUpdate() {
 		if (this.updateScheduled) {
 			return;
@@ -188,7 +169,7 @@ export default class SimpleProgressBarPlugin extends Plugin {
 			this.updateProgressBar();
 			const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 			if (view) {
-				window.requestAnimationFrame(() => this.sectionProgressBar.updateAllEmbeddedBars(view));
+				window.requestAnimationFrame(() => this.sectionProgressBar.updateAllEmbeddedBars(view, this.settings.showInlineProgressBar));
 			}
 		}, 0);
 	}
@@ -197,6 +178,21 @@ export default class SimpleProgressBarPlugin extends Plugin {
 		this.settings.showNoteProgressBar = enabled;
 		await this.saveSettings();
 		this.updateProgressBar();
+	}
+
+	async setInlineProgressBarEnabled(enabled: boolean) {
+		this.settings.showInlineProgressBar = enabled;
+		await this.saveSettings();
+		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (view) {
+			this.sectionProgressBar.updateAllEmbeddedBars(view, enabled);
+		}
+	}
+
+	async resetSetting<K extends keyof ProgressBarSettings>(key: K) {
+		this.settings[key] = DEFAULT_SETTINGS[key];
+		await this.saveSettings();
+		this.updateProgressBars();
 	}
 
 	private insertInlineProgressBar(editor: Editor) {
@@ -221,6 +217,16 @@ class ProgressBarSettingTab extends PluginSettingTab {
 	display(): void {
 		const { containerEl } = this;
 		const inlineProgressBlock = '```sp-bar\nProgress\n```';
+		const addResetButton = <K extends keyof ProgressBarSettings>(setting: Setting, key: K, afterReset?: () => void) => {
+			setting.addButton(button => button
+				.setIcon('reset')
+				.setTooltip('Reset to default')
+				.onClick(async () => {
+					await this.plugin.resetSetting(key);
+					afterReset?.();
+					this.display();
+				}));
+		};
 
 		containerEl.empty();
 
@@ -234,6 +240,43 @@ class ProgressBarSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Inline progress bar')
 			.setHeading();
+
+		new Setting(containerEl)
+			.setName('Show inline progress bars')
+			.setDesc('Displays progress bars rendered from ```sp-bar code blocks in notes.')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.showInlineProgressBar)
+				.onChange(async (value) => {
+					await this.plugin.setInlineProgressBarEnabled(value);
+				}));
+
+		const inlineWidthSetting = new Setting(containerEl)
+			.setName('Inline progress bar width')
+			.setDesc('Controls inline section progress bar width as a percentage of the available space.')
+			.addSlider(slider => slider
+				.setLimits(5, 100, 5)
+				.setValue(this.plugin.settings.inlineBarWidth)
+				.setDynamicTooltip()
+				.onChange(async (value) => {
+					this.plugin.settings.inlineBarWidth = value;
+					await this.plugin.saveSettings();
+					this.plugin.updateProgressBars();
+				}));
+		addResetButton(inlineWidthSetting, 'inlineBarWidth');
+
+		const inlineHeightSetting = new Setting(containerEl)
+			.setName('Inline progress bar height')
+			.setDesc('Controls inline section progress bar height in pixels.')
+			.addSlider(slider => slider
+				.setLimits(2, 20, 1)
+				.setValue(this.plugin.settings.inlineBarHeight)
+				.setDynamicTooltip()
+				.onChange(async (value) => {
+					this.plugin.settings.inlineBarHeight = value;
+					await this.plugin.saveSettings();
+					this.plugin.updateProgressBars();
+				}));
+		addResetButton(inlineHeightSetting, 'inlineBarHeight');
 
 		new Setting(containerEl)
 			.setName('Insert with a command')
@@ -255,39 +298,40 @@ class ProgressBarSettingTab extends PluginSettingTab {
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.showNoteProgressBar)
 				.onChange(async (value) => {
-					this.plugin.settings.showNoteProgressBar = value;
-					await this.plugin.saveSettings();
-					this.plugin.updateProgressBar();
+					await this.plugin.setNoteProgressBarEnabled(value);
 				}));
 
-		new Setting(containerEl)
-			.setName('Progress bar width')
-			.setDesc('Controls the note header and inline section progress bar width as a percentage of the available space.')
+		const noteWidthSetting = new Setting(containerEl)
+			.setName('Note progress bar width')
+			.setDesc('Controls the note header progress bar width as a percentage of the available space.')
 			.addSlider(slider => slider
 				.setLimits(5, 100, 5)
-				.setValue(this.plugin.settings.barWidth)
+				.setValue(this.plugin.settings.noteBarWidth)
 				.setDynamicTooltip()
 				.onChange(async (value) => {
-					this.plugin.settings.barWidth = value;
+					this.plugin.settings.noteBarWidth = value;
 					await this.plugin.saveSettings();
 					this.plugin.updateProgressBar();
 				}));
+		addResetButton(noteWidthSetting, 'noteBarWidth');
 
-		new Setting(containerEl)
-			.setName('Progress bar height')
-			.setDesc('Controls the note header and inline section progress bar height in pixels.')
+		const noteHeightSetting = new Setting(containerEl)
+			.setName('Note progress bar height')
+			.setDesc('Controls the note header progress bar height in pixels.')
 			.addSlider(slider => slider
 				.setLimits(2, 20, 1)
-				.setValue(this.plugin.settings.barHeight)
+				.setValue(this.plugin.settings.noteBarHeight)
 				.setDynamicTooltip()
 				.onChange(async (value) => {
-					this.plugin.settings.barHeight = value;
+					this.plugin.settings.noteBarHeight = value;
 					await this.plugin.saveSettings();
 					this.plugin.updateProgressBar();
 				}));
+		addResetButton(noteHeightSetting, 'noteBarHeight');
 
 		new Setting(containerEl)
 			.setName('Commands')
-			.setDesc('Command palette: Toggle note progress bar, Show note progress bar, Hide note progress bar.');
+			.setDesc('Command palette: Toggle note progress bar, Show note progress bar, Hide note progress bar, Insert inline progress bar.');
 	}
+
 }

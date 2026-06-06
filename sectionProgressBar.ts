@@ -1,5 +1,6 @@
-import { MarkdownView, MarkdownPostProcessorContext } from 'obsidian';
+import { App, MarkdownView, MarkdownPostProcessorContext, TFile } from 'obsidian';
 import { ProgressBarComponent } from './progressBarComponent';
+import { countCheckboxesInSection } from './progressUtils';
 
 interface ProgressBarInfo {
 	el: HTMLElement | null;
@@ -18,16 +19,12 @@ export class SectionProgressBar {
 	private embeddedBars: Map<string, ProgressBarInfo[]> = new Map();
 	private currentFilePath: string | null = null;
 
+	constructor(private app: App) {}
+
 	/**
 	 * Ensure we have an index of all sp-bar blocks in the file, even if they haven't been rendered yet.
 	 */
-	private indexBars(view: MarkdownView) {
-		if (!view.file) return;
-
-
-		const filePath = view.file.path;
-		const content = view.editor.getValue().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-
+	private indexBars(filePath: string, content: string) {
 		const existing = this.embeddedBars.get(filePath) || [];
 		const existingById = new Map(existing.map(bar => [bar.id, bar]));
 
@@ -61,60 +58,41 @@ export class SectionProgressBar {
 		}
 
 		this.embeddedBars.set(filePath, indexedBars);
-		this.currentFilePath = filePath;
 	}
 
 	/**
-	 * Renders an embedded progress bar in a code block
+	 * Renders an embedded progress bar in a code block.
+	 *
+	 * This intentionally uses ctx.sourcePath + vault contents instead of requiring
+	 * the active editor. Reading mode can render markdown when a MarkdownView is
+	 * not yet active, and using only getActiveViewOfType can leave the code block
+	 * empty in that path.
 	 */
-	renderEmbeddedProgressBar(source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext, view: MarkdownView) {
-		// Store reference for later updates
+	async renderEmbeddedProgressBar(source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext, enabled: boolean) {
 		const filePath = ctx.sourcePath;
-
-		this.indexBars(view);
+		const content = await this.getContentForPath(filePath);
 
 		// If we switched to a new file, clear the old file's bars
 		if (this.currentFilePath !== null && this.currentFilePath !== filePath) {
 			this.embeddedBars.delete(this.currentFilePath);
 		}
-		this.currentFilePath = filePath;
 
-		// Initialize array if needed
-		if (!this.embeddedBars.has(filePath)) {
-			this.embeddedBars.set(filePath, []);
-		}
+		this.indexBars(filePath, content);
+		this.currentFilePath = filePath;
 
 		// Get section info to find line number
 		const sectionInfo = ctx.getSectionInfo(el);
-		let lineStart = 0;
-
-		if (!sectionInfo) {
-			// Fallback: Calculate from content by finding this specific code block
-			const codeBlockPattern = /^```sp-bar\s*\n/gm;
-			const matches = [...view.editor.getValue().matchAll(codeBlockPattern)];
-
-			// Find this bar by checking which match corresponds to this element
-			for (let i = 0; i < matches.length; i++) {
-				const match = matches[i];
-				const lines = view.editor.getValue().substring(0, match.index).split('\n');
-				const calculatedLine = lines.length - 1;
-
-				// Check if this line is already used
-				const existingBar = this.embeddedBars.get(filePath)!.find(b => b.lineStart === calculatedLine);
-				if (!existingBar) {
-					lineStart = calculatedLine;
-					break;
-				}
-			}
-		} else {
-			lineStart = sectionInfo.lineStart;
+		let lineStart = sectionInfo?.lineStart ?? this.findNextUnclaimedBarLine(filePath, content);
+		if (lineStart < 0) {
+			lineStart = 0;
 		}
 
 		// Use lineStart as the unique ID (since each bar is on a different line)
 		const barId = lineStart;
 
 		// Check if this bar already exists (to prevent duplicates in our array)
-		const existingBar = this.embeddedBars.get(filePath)!.find(b => b.id === barId);
+		const bars = this.embeddedBars.get(filePath) || [];
+		const existingBar = bars.find(b => b.id === barId);
 		if (existingBar) {
 			// Obsidian re-rendered this bar with a new DOM element
 			// Update our stored reference to point to the new element
@@ -123,8 +101,7 @@ export class SectionProgressBar {
 			existingBar.label = source.trim();
 			existingBar.ctx = ctx;
 		} else {
-			// Add new bar
-			this.embeddedBars.get(filePath)!.push({
+			bars.push({
 				el,
 				source,
 				label: source.trim(),
@@ -132,23 +109,45 @@ export class SectionProgressBar {
 				lineStart: lineStart,
 				id: barId
 			});
+			this.embeddedBars.set(filePath, bars);
 		}
 
 		// Store the ID on the element for later lookup
 		el.dataset.barId = barId.toString();
 
+		if (!enabled) {
+			this.renderDisabledState(el);
+			return;
+		}
+
 		// Use requestAnimationFrame to ensure DOM is ready and getSectionInfo is stable
 		window.requestAnimationFrame(() => {
 			window.requestAnimationFrame(() => {
-				this.updateEmbeddedBar(filePath, barId, view);
+				void this.updateEmbeddedBar(filePath, barId, content);
 			});
 		});
+	}
+
+	private findNextUnclaimedBarLine(filePath: string, content: string): number {
+		const codeBlockPattern = /^```sp-bar[^\n]*\n/gm;
+		const matches = [...content.matchAll(codeBlockPattern)];
+		const bars = this.embeddedBars.get(filePath) || [];
+
+		for (const match of matches) {
+			const calculatedLine = content.substring(0, match.index).split('\n').length - 1;
+			const existingBar = bars.find(b => b.lineStart === calculatedLine && b.el);
+			if (!existingBar) {
+				return calculatedLine;
+			}
+		}
+
+		return matches[0]?.index === undefined ? -1 : content.substring(0, matches[0].index).split('\n').length - 1;
 	}
 
 	/**
 	 * Updates a single embedded progress bar
 	 */
-	private updateEmbeddedBar(filePath: string, barId: number, view: MarkdownView) {
+	private async updateEmbeddedBar(filePath: string, barId: number, providedContent?: string) {
 		// Clear existing content
 		const bars = this.embeddedBars.get(filePath) || [];
 		const barInfo = bars.find(bar => bar.id === barId);
@@ -168,14 +167,15 @@ export class SectionProgressBar {
 		// Get the label text (no default)
 		const label = labelText || source.trim();
 
-		if (!view || !view.file) return;
-
 		// Ensure the element matches the expected barId; skip mismatches to avoid offset rendering
 		if (el.dataset.barId && el.dataset.barId !== barId.toString()) {
 			return;
 		}
+		el.removeClass('is-hidden');
+		el.style.removeProperty('display');
 
-		const content = view.editor.getValue().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+		const view = this.getMarkdownViewForPath(filePath);
+		const content = (providedContent ?? await this.getContentForPath(filePath)).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
 		const codeBlockLine = barInfo.lineStart;
 
@@ -255,17 +255,28 @@ export class SectionProgressBar {
 	/**
 	 * Updates all embedded progress bars
 	 */
-	updateAllEmbeddedBars(view: MarkdownView) {
-		this.indexBars(view);
-		for (const [filePath, bars] of this.embeddedBars) {
+	async updateAllEmbeddedBars(view: MarkdownView, enabled: boolean) {
+		if (!view.file) return;
+
+		const filePath = view.file.path;
+		const content = view.editor.getValue().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+		this.indexBars(filePath, content);
+		this.currentFilePath = filePath;
+
+		for (const [trackedFilePath, bars] of this.embeddedBars) {
 			for (const bar of bars) {
 				// Only update if the element is still connected to the DOM
 				if (bar.el && bar.el.isConnected) {
 					if (bar.el.dataset.barId && bar.el.dataset.barId !== bar.id.toString()) {
 						continue;
 					}
-					this.updateEmbeddedBar(filePath, bar.id, view);
-					continue;
+
+					if (!enabled) {
+						this.renderDisabledState(bar.el);
+						continue;
+					}
+
+					void this.updateEmbeddedBar(trackedFilePath, bar.id, trackedFilePath === filePath ? content : undefined);
 				}
 			}
 		}
@@ -276,21 +287,25 @@ export class SectionProgressBar {
 	 * checkbox state in the rendered DOM than in the editor buffer immediately
 	 * after a visible task click.
 	 */
-	private countCheckboxesForView(view: MarkdownView, barEl: HTMLElement, content: string, codeBlockLine: number): { total: number; checked: number } {
-		if (view.getMode?.() === 'preview') {
+	private countCheckboxesForView(view: MarkdownView | null, barEl: HTMLElement, content: string, codeBlockLine: number): { total: number; checked: number } {
+		if (view?.getMode?.() === 'preview') {
 			const renderedCounts = this.countRenderedCheckboxesInSection(view, barEl);
 			if (renderedCounts && renderedCounts.total > 0) {
 				return renderedCounts;
 			}
 		}
 
-		return this.countCheckboxesInSection(content, codeBlockLine);
+		return countCheckboxesInSection(content, codeBlockLine);
 	}
 
 	private countRenderedCheckboxesInSection(view: MarkdownView, barEl: HTMLElement): { total: number; checked: number } | null {
 		const previewEl = view.contentEl.querySelector<HTMLElement>('.markdown-preview-sizer')
 			?? view.contentEl.querySelector<HTMLElement>('.markdown-preview-view')
 			?? view.contentEl;
+		if (!previewEl.contains(barEl)) {
+			return null;
+		}
+
 		let sectionNode: HTMLElement = barEl;
 
 		while (sectionNode.parentElement && sectionNode.parentElement !== previewEl) {
@@ -346,68 +361,49 @@ export class SectionProgressBar {
 		return total > 0 ? { total, checked } : null;
 	}
 
-	/**
-	 * Counts checkboxes in the section containing the code block
-	 */
-	private countCheckboxesInSection(content: string, codeBlockLine: number): { total: number; checked: number } {
-		const lines = content.split('\n');
 
-		// Find the heading above this code block
-		let sectionStart = 0;
-		let sectionLevel = 0;
-		let foundHeading = false;
-
-		// Search backwards for a heading
-		for (let i = codeBlockLine - 1; i >= 0; i--) {
-			const line = lines[i] ?? '';
-			const headingMatch = line.match(/^(#{1,6})\s+/);
-			if (headingMatch) {
-				sectionStart = i;
-				sectionLevel = headingMatch[1].length;
-				foundHeading = true;
-				break;
-			}
+	private async getContentForPath(filePath: string): Promise<string> {
+		const activeView = this.getMarkdownViewForPath(filePath);
+		if (activeView) {
+			return activeView.editor.getValue().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 		}
 
-		// Find the end of this section (next heading of same or higher level)
-		let sectionEnd = lines.length;
-
-		if (foundHeading) {
-			// If we found a heading, find the next heading of same or higher level
-			for (let i = codeBlockLine + 1; i < lines.length; i++) {
-				const line = lines[i] ?? '';
-				const headingMatch = line.match(/^(#{1,6})\s+/);
-				if (headingMatch && headingMatch[1].length <= sectionLevel) {
-					sectionEnd = i;
-					break;
-				}
-			}
-		} else {
-			// If no heading found, this is before the first heading
-			// Special case: count ALL checkboxes in the entire document
-			// This makes the first bar show total document progress
-			sectionStart = 0;
-			sectionEnd = lines.length;
+		const file = this.app.vault.getAbstractFileByPath(filePath);
+		if (file instanceof TFile) {
+			return (await this.app.vault.cachedRead(file)).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 		}
 
-		// Count checkboxes in this section
-		const sectionContent = lines.slice(sectionStart, sectionEnd).join('\n');
-		return this.countCheckboxes(sectionContent);
+		return '';
 	}
 
-	/**
-	 * Counts checkboxes in the given content
-	 */
-	private countCheckboxes(content: string): { total: number; checked: number } {
-		// Match unchecked boxes: - [ ]
-		const uncheckedRegex = /(^|\n)[\t ]*[-*+]\s+\[ \]/g;
-		// Match checked boxes: - [x] or - [X]
-		const checkedRegex = /(^|\n)[\t ]*[-*+]\s+\[[xX]\]/g;
+	private getMarkdownViewForPath(filePath: string): MarkdownView | null {
+		const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (activeView?.file?.path === filePath) {
+			return activeView;
+		}
 
-		const unchecked = (content.match(uncheckedRegex) || []).length;
-		const checked = (content.match(checkedRegex) || []).length;
-		const total = checked + unchecked;
+		const leaves = this.app.workspace.getLeavesOfType('markdown');
+		for (const leaf of leaves) {
+			const view = leaf.view;
+			if (view instanceof MarkdownView && view.file?.path === filePath) {
+				return view;
+			}
+		}
 
-		return { total, checked };
+		return null;
+	}
+
+	private renderDisabledState(el: HTMLElement) {
+		el.empty();
+		el.addClass('is-hidden');
+		el.style.setProperty('display', 'none');
+	}
+
+	cleanup() {
+		this.embeddedBars.forEach((bars) => {
+			bars.forEach((bar) => bar.el?.empty());
+		});
+		this.embeddedBars.clear();
+		this.currentFilePath = null;
 	}
 }

@@ -15,4 +15,4 @@ data.json
 .vscode/
 .claude/
 .hermes/
-tests/
+.test-dist/

@@ -1,5 +1,6 @@
 import { MarkdownView } from 'obsidian';
 import { ProgressBarComponent } from './progressBarComponent';
+import { countMarkdownCheckboxes } from './progressUtils';
 
 /**
  * Manages the note-level progress bar displayed in the header
@@ -143,24 +144,7 @@ export class NoteProgressBar {
 			}
 		}
 
-		return this.countCheckboxes(content);
-	}
-
-	/**
-	 * Counts checkboxes in the entire note
-	 * Returns: { total: number, checked: number }
-	 */
-	private countCheckboxes(content: string): { total: number; checked: number } {
-		// Match unchecked boxes: - [ ]
-		const uncheckedRegex = /(^|\n)[\t ]*[-*+]\s+\[ \]/g;
-		// Match checked boxes: - [x] or - [X]
-		const checkedRegex = /(^|\n)[\t ]*[-*+]\s+\[[xX]\]/g;
-
-		const unchecked = (content.match(uncheckedRegex) || []).length;
-		const checked = (content.match(checkedRegex) || []).length;
-		const total = checked + unchecked;
-
-		return { total, checked };
+		return countMarkdownCheckboxes(content);
 	}
 
 	/**
